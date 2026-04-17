@@ -1,0 +1,61 @@
+ʀᴀᴍᴢɪᴋ, [17 апр. 2026 в 22:07]
+import asyncio
+import os
+from aiogram import Bot, Dispatcher, types
+from aiogram.filters import Command
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+import yt_dlp
+
+BOT_TOKEN = "8674687485:AAHp3T4z8RJdAxy55lQEvVCyfFLrLNhky0k"
+CHANNEL_ID = "@voodushevlenni"
+
+bot = Bot(token=BOT_TOKEN)
+dp = Dispatcher()
+
+def is_subscribed(user_id):
+    try:
+        result = asyncio.run(bot.get_chat_member(chat_id=CHANNEL_ID, user_id=user_id))
+        return result.status in ["member", "creator", "administrator"]
+    except:
+        return False
+
+@dp.message(Command("start"))
+async def start(message: types.Message):
+    if is_subscribed(message.from_user.id):
+        await message.answer("👋 Отправь ссылку на видео из TikTok/YouTube/Instagram/Pinterest/Likee")
+    else:
+        kb = InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="📢 Подписаться", url=f"https://t.me/{CHANNEL_ID[1:]}")],
+            [InlineKeyboardButton(text="✅ Проверить подписку", callback_data="check")]
+        ])
+        await message.answer("❌ Ты не подписан на канал!", reply_markup=kb)
+
+@dp.callback_query(lambda c: c.data == "check")
+async def check(callback):
+    if is_subscribed(callback.from_user.id):
+        await callback.message.edit_text("✅ Спасибо! Теперь отправь ссылку на видео")
+    else:
+        await callback.answer("❌ Ты всё ещё не подписан!", show_alert=True)
+
+@dp.message()
+async def download(message: types.Message):
+    if not is_subscribed(message.from_user.id):
+        return await message.answer("❌ Подпишись на канал сначала!")
+    
+    url = message.text.strip()
+    await message.answer("⏳ Скачиваю...")
+    try:
+        ydl_opts = {'format': 'best', 'outtmpl': 'video.mp4', 'quiet': True}
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            ydl.extract_info(url, download=True)
+        with open("video.mp4", "rb") as v:
+            await message.answer_video(v, caption="❤️ Скачано в @DipsikSave_bot")
+        os.remove("video.mp4")
+    except Exception as e:
+        await message.answer(f"❌ Ошибка: {e}")
+
+async def main():
+    await dp.start_polling(bot)
+
+if name == "__main__":
+    asyncio.run(main())
